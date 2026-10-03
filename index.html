@@ -27,6 +27,11 @@ h1{margin:0;font-size:22px}
 .bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:var(--s)}
 button,select{font:inherit;padding:9px 14px;border-radius:8px;border:1px solid var(--d);background:var(--bg);color:var(--fg)}
 button{background:var(--btn);color:#fff;border:0;font-weight:600;cursor:pointer}
+.clk{display:flex;justify-content:space-between;align-items:center;width:var(--s);box-sizing:border-box;padding:8px 14px;border-radius:8px;border:1px solid var(--d);font-size:17px}
+.clk b{font-variant-numeric:tabular-nums;font-size:24px}
+.clk.on{background:var(--btn);color:#fff;border-color:var(--btn)}
+.clk.low b{color:#e53935}
+.clk.on.low b{color:#ffd54f}
 #pop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:10;padding:16px}
 #pb{background:var(--bg);color:var(--fg);border-radius:16px;padding:26px 22px;width:min(88vw,340px);text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.4);animation:pp .25s ease-out}
 #pi{font-size:60px;line-height:1.1}
@@ -38,9 +43,12 @@ button{background:var(--btn);color:#fff;border:0;font-weight:600;cursor:pointer}
 </style></head><body>
 <h1>♟ Cờ Vua</h1>
 <div id="st"></div>
+<div class="clk" id="cb"><span id="lb"></span><b id="tb"></b></div>
 <div id="bd"></div>
+<div class="clk" id="cw"><span id="lw"></span><b id="tw"></b></div>
 <div class="bar">
 <select id="mode"><option value="ai">Chơi với máy (bạn cầm Trắng)</option><option value="2p">2 người chơi</option></select>
+<select id="tm"><option value="2">⏱ 2 phút / bên</option><option value="5" selected>⏱ 5 phút / bên</option><option value="10">⏱ 10 phút / bên</option></select>
 <select id="lv"><option value="1">Dễ</option><option value="2" selected>Vừa</option><option value="3">Khó</option></select>
 <button id="nw">Ván mới</button><button id="un">Đi lại</button><button id="sd">🔊 Âm thanh</button>
 </div>
@@ -105,20 +113,30 @@ function best(s,d){const L=legal(s);let bm=null,bv=1e9;
 
 let S,hist,last,sel,targets,busy,over;
 const $=id=>document.getElementById(id),bd=$('bd');
-function reset(){$('pop').style.display='none';S=init();hist=[];last=null;sel=null;targets=new Set;busy=false;over=false;after();welcome()}
+let tl={w:3e5,b:3e5},lt=Date.now(),started=false,tout=false;
+const fmt=ms=>{const s=Math.ceil(Math.max(0,ms)/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+function drawClk(){for(const c of['w','b']){const e=$('c'+c);$('t'+c).textContent=fmt(tl[c]);e.classList.toggle('on',started&&!over&&S.t===c);e.classList.toggle('low',tl[c]<=10000)}}
+function tickNow(){const n=Date.now(),d=n-lt;lt=n;if(!started||over||tout)return;tl[S.t]-=d;if(tl[S.t]<=0){tl[S.t]=0;timeUp(S.t)}drawClk()}
+function timeUp(side){tout=true;over=true;const ai=$('mode').value==='ai',win=side==='w'?'Đen':'Trắng';
+ $('st').textContent='Hết giờ! '+win+' thắng';
+ show(ai?(side==='w'?'🤖':'🏆'):'⏰',ai?(side==='w'?'Máy thắng':'Bạn đã thắng!'):win+' thắng!','Hết giờ của '+(side==='w'?'Trắng':'Đen')+'.')}
+setInterval(tickNow,100);
+function reset(){$('pop').style.display='none';const T=+$('tm').value*60000,ai=$('mode').value==='ai';tl={w:T,b:T};started=false;tout=false;lt=Date.now();
+ $('lw').textContent=ai?'Trắng (Bạn)':'Trắng';$('lb').textContent=ai?'Đen (Máy)':'Đen';S=init();hist=[];last=null;sel=null;targets=new Set;busy=false;over=false;after();welcome()}
 function after(){const L=legal(S),ck=inChk(S),ai=$('mode').value==='ai',w=S.t==='w';let t;
- over=!L.length;
+ over=!L.length||tout;
  if(over)t=ck?`Chiếu hết! ${w?'Đen':'Trắng'} thắng 🎉`:'Hòa (hết nước đi)';
  else if(ai)t=w?(ck?'Bạn đang bị chiếu!':'Lượt của bạn (Trắng)'):'Máy đang nghĩ…';
  else t=(w?'Lượt Trắng':'Lượt Đen')+(ck?' — Chiếu!':'');
- $('st').textContent=t;draw(ck?kingSq(S,S.t):-1);if(over)pop(ck,w)}
+ $('st').textContent=t;draw(ck?kingSq(S,S.t):-1);drawClk();if(over)pop(ck,w)}
 function pop(ck,w){const ai=$('mode').value==='ai';let ic='🤝',h='Hòa!',m='Ván cờ kết thúc với kết quả hòa (hết nước đi).';
  if(ck){const win=w?'Đen':'Trắng';
   if(ai){ic=w?'🤖':'🏆';h=w?'Máy thắng':'Bạn đã thắng!';m=w?'Chiếu hết. Thử lại nhé!':'Chiếu hết! Chúc mừng bạn! 🎉'}
   else{ic='🏆';h=win+' thắng!';m='Chiếu hết! Chúc mừng người chơi '+win+'.'}}
- setTimeout(()=>{if(!over)return;$('pi').textContent=ic;$('ph').textContent=h;$('pm').textContent=m;$('pn').style.display='';$('pc').textContent='Đóng';$('pop').style.display='flex'},500)}
+ show(ic,h,m)}
+function show(ic,h,m){setTimeout(()=>{if(!over)return;$('pi').textContent=ic;$('ph').textContent=h;$('pm').textContent=m;$('pn').style.display='';$('pc').textContent='Đóng';$('pop').style.display='flex'},500)}
 function welcome(){$('pi').textContent='♟️';$('ph').textContent='Chào mừng bạn!';$('pm').textContent='Đây là 1 sản phẩm được tạo ra bởi HIEPVUVAN, chúc bạn có 1 trải nghiệm thú vị';$('pn').style.display='none';$('pc').textContent='Bắt đầu chơi';$('pop').style.display='flex'}
-$('pc').onclick=()=>{$('pop').style.display='none'};
+$('pc').onclick=()=>{$('pop').style.display='none';if(!over&&!started){started=true;lt=Date.now();drawClk()}};
 $('pn').onclick=()=>{$('pop').style.display='none';reset()};
 function draw(chk){bd.innerHTML='';
  for(let i=0;i<64;i++){const d=document.createElement('div'),c=S.b[i];d.className='q '+(((i>>3)+(i&7))%2?'d':'l');
@@ -134,8 +152,8 @@ function click(i){if(over||busy)return;const ai=$('mode').value==='ai';if(ai&&S.
  const c=S.b[i];
  if(c&&col(c)===S.t){sel=i;targets=new Set(L.filter(x=>x.f===i).map(x=>x.t))}else{sel=null;targets=new Set}
  draw(inChk(S)?kingSq(S,S.t):-1)}
-function play(m){const cp=!!S.b[m.t]||!!m.ep;hist.push(S);S=mk(S,m);snd(cp?'cap':'mv');last=m;sel=null;targets=new Set;after();
- if(!over&&$('mode').value==='ai'&&S.t==='b'){busy=true;setTimeout(()=>{const bm=best(S,+$('lv').value);const cp=!!S.b[bm.t]||!!bm.ep;hist.push(S);S=mk(S,bm);snd(cp?'cap':'mv');last=bm;busy=false;after()},60)}}
+function play(m){tickNow();if(tout)return;const cp=!!S.b[m.t]||!!m.ep;hist.push(S);S=mk(S,m);snd(cp?'cap':'mv');last=m;sel=null;targets=new Set;after();
+ if(!over&&$('mode').value==='ai'&&S.t==='b'){busy=true;setTimeout(()=>{const bm=best(S,+$('lv').value);tickNow();if(tout){busy=false;return}const cp=!!S.b[bm.t]||!!bm.ep;hist.push(S);S=mk(S,bm);snd(cp?'cap':'mv');last=bm;busy=false;after()},60)}}
 let AC=null,mute=false;
 function snd(k){if(mute)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();
  const t=AC.currentTime,tone=(f,d,v,ty,dl)=>{const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.setValueAtTime(f,t+dl);o.frequency.exponentialRampToValueAtTime(f*.5,t+dl+d);g.gain.setValueAtTime(v,t+dl);g.gain.exponentialRampToValueAtTime(.001,t+dl+d);o.connect(g);g.connect(AC.destination);o.start(t+dl);o.stop(t+dl+d+.03)};
@@ -144,7 +162,8 @@ function snd(k){if(mute)return;try{AC=AC||new(window.AudioContext||window.webkit
 }catch(e){}}
 $('sd').onclick=()=>{mute=!mute;$('sd').textContent=mute?'🔇 Tắt tiếng':'🔊 Âm thanh';snd('mv')};
 $('nw').onclick=()=>{if(!busy)reset()};
-$('un').onclick=()=>{if(busy||!hist.length)return;S=hist.pop();if($('mode').value==='ai'&&S.t==='b'&&hist.length)S=hist.pop();last=null;sel=null;targets=new Set;after()};
+$('un').onclick=()=>{if(busy||tout||!hist.length)return;S=hist.pop();if($('mode').value==='ai'&&S.t==='b'&&hist.length)S=hist.pop();last=null;sel=null;targets=new Set;after()};
+$('tm').onchange=()=>{if(!busy)reset()};
 $('mode').onchange=()=>{if(!busy)reset()};
 reset();
 </script></body></html>
