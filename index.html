@@ -42,7 +42,7 @@ button{background:var(--btn);color:#fff;border:0;font-weight:600;cursor:pointer}
 <div class="bar">
 <select id="mode"><option value="ai">Chơi với máy (bạn cầm Trắng)</option><option value="2p">2 người chơi</option></select>
 <select id="lv"><option value="1">Dễ</option><option value="2" selected>Vừa</option><option value="3">Khó</option></select>
-<button id="nw">Ván mới</button><button id="un">Đi lại</button>
+<button id="nw">Ván mới</button><button id="un">Đi lại</button><button id="sd">🔊 Âm thanh</button>
 </div>
 <div id="pop"><div id="pb"><div id="pi"></div><h2 id="ph"></h2><p id="pm"></p>
 <div class="bar"><button id="pn">Ván mới</button><button id="pc">Đóng</button></div></div></div>
@@ -134,8 +134,15 @@ function click(i){if(over||busy)return;const ai=$('mode').value==='ai';if(ai&&S.
  const c=S.b[i];
  if(c&&col(c)===S.t){sel=i;targets=new Set(L.filter(x=>x.f===i).map(x=>x.t))}else{sel=null;targets=new Set}
  draw(inChk(S)?kingSq(S,S.t):-1)}
-function play(m){hist.push(S);S=mk(S,m);last=m;sel=null;targets=new Set;after();
- if(!over&&$('mode').value==='ai'&&S.t==='b'){busy=true;setTimeout(()=>{const bm=best(S,+$('lv').value);hist.push(S);S=mk(S,bm);last=bm;busy=false;after()},60)}}
+function play(m){const cp=!!S.b[m.t]||!!m.ep;hist.push(S);S=mk(S,m);snd(cp?'cap':'mv');last=m;sel=null;targets=new Set;after();
+ if(!over&&$('mode').value==='ai'&&S.t==='b'){busy=true;setTimeout(()=>{const bm=best(S,+$('lv').value);const cp=!!S.b[bm.t]||!!bm.ep;hist.push(S);S=mk(S,bm);snd(cp?'cap':'mv');last=bm;busy=false;after()},60)}}
+let AC=null,mute=false;
+function snd(k){if(mute)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();
+ const t=AC.currentTime,tone=(f,d,v,ty,dl)=>{const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.setValueAtTime(f,t+dl);o.frequency.exponentialRampToValueAtTime(f*.5,t+dl+d);g.gain.setValueAtTime(v,t+dl);g.gain.exponentialRampToValueAtTime(.001,t+dl+d);o.connect(g);g.connect(AC.destination);o.start(t+dl);o.stop(t+dl+d+.03)};
+ if(k==='cap'){tone(320,.12,.5,'triangle',0);tone(120,.2,.6,'sine',0);tone(240,.1,.4,'triangle',.07);tone(90,.18,.5,'sine',.07)}
+ else{tone(440,.07,.35,'triangle',0);tone(170,.1,.4,'sine',0)}
+}catch(e){}}
+$('sd').onclick=()=>{mute=!mute;$('sd').textContent=mute?'🔇 Tắt tiếng':'🔊 Âm thanh';snd('mv')};
 $('nw').onclick=()=>{if(!busy)reset()};
 $('un').onclick=()=>{if(busy||!hist.length)return;S=hist.pop();if($('mode').value==='ai'&&S.t==='b'&&hist.length)S=hist.pop();last=null;sel=null;targets=new Set;after()};
 $('mode').onchange=()=>{if(!busy)reset()};
